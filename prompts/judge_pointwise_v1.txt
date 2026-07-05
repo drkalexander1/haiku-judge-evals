@@ -1,0 +1,18 @@
+Analyze the following haiku in isolation. You will not see any other haiku in this step -- judge it strictly on its own merits.
+
+Subject: {subject}
+Haiku {label}:
+{haiku_text}
+
+Count syllables per line carefully -- don't assume the 5-7-5 form is correct just because it looks like a haiku. Note whether it includes a traditional seasonal word (kigo) or strong seasonal/natural imagery. Give a short, concrete assessment of imagery and evocativeness. Then give an overall quality score 1-10 based purely on this haiku's own merits.
+
+Respond with JSON only:
+{{
+  "line1_syllables": <int>,
+  "line2_syllables": <int>,
+  "line3_syllables": <int>,
+  "syllable_correct": <true or false>,
+  "has_kigo_or_season_word": <true or false>,
+  "imagery_assessment": "<1-2 sentences>",
+  "overall_quality_1_to_10": <int 1-10>
+}}

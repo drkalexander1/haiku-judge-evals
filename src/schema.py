@@ -11,6 +11,8 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "data"
 HAIKUS_PATH = DATA_DIR / "haikus_to_judge.jsonl"
 PROMPT_PATH = ROOT / "prompts" / "judge_pairwise_v1.txt"
+POINTWISE_PROMPT_PATH = ROOT / "prompts" / "judge_pointwise_v1.txt"
+PREPAIR_FINAL_PROMPT_PATH = ROOT / "prompts" / "judge_pairwise_prepair_v1.txt"
 
 
 class HaikuToJudge(BaseModel):
@@ -43,6 +45,20 @@ class JudgePairRating(BaseModel):
     syllable_correct_b: bool = Field(description="True if Haiku B follows the 5-7-5 syllable pattern")
 
 
+class PointwiseCritique(BaseModel):
+    """A single haiku analyzed in isolation, with no visibility of the haiku it will
+    eventually be compared against -- the PRePair step that breaks the "Comparative Trap"
+    (Jeong et al. 2025) by forcing rubric-grounded analysis before any side-by-side framing."""
+
+    line1_syllables: int
+    line2_syllables: int
+    line3_syllables: int
+    syllable_correct: bool = Field(description="True if the pattern is exactly 5-7-5")
+    has_kigo_or_season_word: bool = Field(description="True if there's a traditional seasonal word/image")
+    imagery_assessment: str = Field(description="1-2 sentence assessment of imagery and evocativeness")
+    overall_quality_1_to_10: int = Field(ge=1, le=10, description="Quality of this haiku alone, on its own merits")
+
+
 def load_haikus_to_judge(path: Path | None = None) -> list[HaikuToJudge]:
     path = path or HAIKUS_PATH
     items: list[HaikuToJudge] = []
@@ -56,4 +72,14 @@ def load_haikus_to_judge(path: Path | None = None) -> list[HaikuToJudge]:
 
 def load_judge_prompt_template(path: Path | None = None) -> str:
     path = path or PROMPT_PATH
+    return path.read_text(encoding="utf-8")
+
+
+def load_pointwise_prompt_template(path: Path | None = None) -> str:
+    path = path or POINTWISE_PROMPT_PATH
+    return path.read_text(encoding="utf-8")
+
+
+def load_prepair_final_prompt_template(path: Path | None = None) -> str:
+    path = path or PREPAIR_FINAL_PROMPT_PATH
     return path.read_text(encoding="utf-8")

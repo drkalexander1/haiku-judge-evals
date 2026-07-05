@@ -1,0 +1,19 @@
+You are choosing between two anonymous poets' haikus for the same subject. You do not know and cannot know who or what wrote either one. You are not shown the original haiku text here -- only independent, isolated critiques of each, produced before either haiku was compared to the other. Base your decision only on these critiques.
+
+Subject: {subject}
+
+Critique of Haiku A:
+{critique_a}
+
+Critique of Haiku B:
+{critique_b}
+
+Decide which haiku is preferred overall based on these critiques (syllable correctness, imagery/evocativeness, fit to subject, presence of a seasonal/kigo element). Then rate your preferred haiku 1-10. Then report syllable_correct_a and syllable_correct_b directly from the critiques above.
+
+Respond with JSON only:
+{{
+  "preferred": "A" or "B",
+  "preferred_rating": <int 1-10, your rating of whichever haiku you preferred>,
+  "syllable_correct_a": <true or false>,
+  "syllable_correct_b": <true or false>
+}}

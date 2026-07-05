@@ -11,6 +11,7 @@ dependencies = [
     "anthropic>=0.34.0",
     "python-dotenv>=1.0.0",
     "pandas>=2.2.0",
+    "numpy>=1.26.0",
     "matplotlib>=3.8.0",
     "pyyaml>=6.0",
     "syllables>=1.0.7",

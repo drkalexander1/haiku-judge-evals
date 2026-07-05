@@ -2,10 +2,20 @@
 scenario (subject + prompt variant), picking a winner and rating it.
 
 Pairing is within scenario_id -- for N author models per scenario that's
-C(N, 2) pairs. Which author lands on the "A" side vs "B" side is decided by a
-stable hash of (scenario_id, model_x, model_y), so the assignment is fixed
-across all judge models (apples-to-apples comparison) and reproducible across
-re-runs, but effectively random per pair (for position-bias sanity checks).
+C(N, 2) pairs. Each pair is judged in BOTH position orientations (Haiku A/B
+order swapped) -- the "Mirror Test" -- so report.py can discard votes that
+flip based on position alone rather than trust a single hashed ordering.
+
+Each orientation is judged with PRePair (Pointwise Reasoning within Pairwise
+frameworks, cf. Jeong et al. 2025 "The Comparative Trap"): the two haikus are
+first critiqued in complete isolation against a fixed rubric, and only those
+critiques -- not the raw haiku text -- are shown to the model for the final
+A/B decision. This targets the mechanism behind the Comparative Trap: judges
+anchoring on side-by-side stylistic impressions instead of rubric criteria.
+
+This means every (scenario, pair, orientation) sample costs 3 model calls
+(critique A, critique B, final decision) instead of 1 -- expect roughly 6x
+the inference cost of a naive single-pass pairwise eval.
 
 Run:
     inspect eval src/inspect_eval.py \
@@ -17,18 +27,24 @@ Run:
 
 from __future__ import annotations
 
-import hashlib
 import json
 from itertools import combinations
 
 from inspect_ai import Task, task
 from inspect_ai.dataset import MemoryDataset, Sample
-from inspect_ai.model import GenerateConfig, ResponseSchema
+from inspect_ai.model import ChatMessageUser, ResponseSchema
 from inspect_ai.scorer import Score, Target, scorer
-from inspect_ai.solver import TaskState, generate
+from inspect_ai.solver import Generate, TaskState, solver
 from inspect_ai.util import json_schema
 
-from src.schema import HaikuToJudge, JudgePairRating, load_haikus_to_judge, load_judge_prompt_template
+from src.schema import (
+    HaikuToJudge,
+    JudgePairRating,
+    PointwiseCritique,
+    load_haikus_to_judge,
+    load_pointwise_prompt_template,
+    load_prepair_final_prompt_template,
+)
 
 SCORER_NAME = "judge_pair_scorer"
 INVALID_PAIR_SCORE = {
@@ -39,19 +55,16 @@ INVALID_PAIR_SCORE = {
     "syllable_judgment_correct_right": None,
 }
 
-_RESPONSE_SCHEMA = ResponseSchema(
+_DECISION_SCHEMA = ResponseSchema(
     name="judge_pair_rating",
     json_schema=json_schema(JudgePairRating),
     strict=True,
 )
-
-
-def _stable_order(scenario_id: str, model_x: str, model_y: str) -> tuple[str, str]:
-    """Deterministically decide which model is shown as Haiku A vs B."""
-    key = f"{scenario_id}::{model_x}::{model_y}"
-    digest = hashlib.sha256(key.encode()).hexdigest()
-    swap = int(digest[:8], 16) % 2 == 1
-    return (model_y, model_x) if swap else (model_x, model_y)
+_CRITIQUE_SCHEMA = ResponseSchema(
+    name="pointwise_critique",
+    json_schema=json_schema(PointwiseCritique),
+    strict=True,
+)
 
 
 def pair_dataset(haikus_path=None) -> MemoryDataset:
@@ -60,36 +73,83 @@ def pair_dataset(haikus_path=None) -> MemoryDataset:
     for h in haikus:
         by_scenario.setdefault(h.scenario_id, []).append(h)
 
-    template = load_judge_prompt_template()
     samples = []
     for scenario_id, items in sorted(by_scenario.items()):
         items_sorted = sorted(items, key=lambda h: h.author_model)
         for h_x, h_y in combinations(items_sorted, 2):
-            pair_map = {h_x.author_model: h_x, h_y.author_model: h_y}
-            left_model, right_model = _stable_order(scenario_id, h_x.author_model, h_y.author_model)
-            left, right = pair_map[left_model], pair_map[right_model]
+            pair_id = f"{h_x.author_model}__vs__{h_y.author_model}"
+            for orientation, (left, right) in (("fwd", (h_x, h_y)), ("swap", (h_y, h_x))):
+                samples.append(
+                    Sample(
+                        input=(
+                            f"Blind-judge {scenario_id}: {left.author_model} vs "
+                            f"{right.author_model} (orientation={orientation})"
+                        ),
+                        id=f"{scenario_id}__{pair_id}__{orientation}",
+                        metadata={
+                            "scenario_id": scenario_id,
+                            "subject": left.subject,
+                            "stratum": left.stratum,
+                            "prompt_variant": left.prompt_variant,
+                            "pair_id": pair_id,
+                            "orientation": orientation,
+                            "author_left": left.author_model,
+                            "author_right": right.author_model,
+                            "haiku_left_text": left.full_text(),
+                            "haiku_right_text": right.full_text(),
+                            "syllable_perfect_actual_left": left.syllable_perfect_actual,
+                            "syllable_perfect_actual_right": right.syllable_perfect_actual,
+                        },
+                    )
+                )
+    return MemoryDataset(samples, name="haiku_pairs")
 
-            samples.append(
-                Sample(
-                    input=template.format(
-                        subject=left.subject,
-                        haiku_a_text=left.full_text(),
-                        haiku_b_text=right.full_text(),
-                    ),
-                    id=f"{scenario_id}__{left.author_model}_vs_{right.author_model}",
-                    metadata={
-                        "scenario_id": scenario_id,
-                        "subject": left.subject,
-                        "stratum": left.stratum,
-                        "prompt_variant": left.prompt_variant,
-                        "author_left": left.author_model,
-                        "author_right": right.author_model,
-                        "syllable_perfect_actual_left": left.syllable_perfect_actual,
-                        "syllable_perfect_actual_right": right.syllable_perfect_actual,
-                    },
+
+@solver
+def prepair_solver():
+    """Two isolated pointwise critiques, then a final pairwise decision that only
+    sees those critiques -- never the raw haiku text side by side."""
+
+    pointwise_template = load_pointwise_prompt_template()
+    final_template = load_prepair_final_prompt_template()
+
+    async def solve(state: TaskState, generate: Generate) -> TaskState:
+        meta = state.metadata
+
+        state.messages = [
+            ChatMessageUser(
+                content=pointwise_template.format(
+                    subject=meta["subject"], haiku_text=meta["haiku_left_text"], label="A"
                 )
             )
-    return MemoryDataset(samples, name="haiku_pairs")
+        ]
+        state = await generate(state, response_schema=_CRITIQUE_SCHEMA)
+        critique_a_raw = state.output.completion
+
+        state.messages = [
+            ChatMessageUser(
+                content=pointwise_template.format(
+                    subject=meta["subject"], haiku_text=meta["haiku_right_text"], label="B"
+                )
+            )
+        ]
+        state = await generate(state, response_schema=_CRITIQUE_SCHEMA)
+        critique_b_raw = state.output.completion
+
+        state.messages = [
+            ChatMessageUser(
+                content=final_template.format(
+                    subject=meta["subject"], critique_a=critique_a_raw, critique_b=critique_b_raw
+                )
+            )
+        ]
+        state = await generate(state, response_schema=_DECISION_SCHEMA)
+
+        state.metadata["critique_a_raw"] = critique_a_raw
+        state.metadata["critique_b_raw"] = critique_b_raw
+        return state
+
+    return solve
 
 
 @scorer(name=SCORER_NAME, metrics=[])
@@ -113,7 +173,13 @@ def judge_pair_scorer():
                 "syllable_judgment_correct_left": syllable_judgment_correct_left,
                 "syllable_judgment_correct_right": syllable_judgment_correct_right,
             },
-            answer=json.dumps(rating.model_dump()),
+            answer=json.dumps(
+                {
+                    "rating": rating.model_dump(),
+                    "critique_a": meta.get("critique_a_raw"),
+                    "critique_b": meta.get("critique_b_raw"),
+                }
+            ),
         )
 
     return score
@@ -123,7 +189,6 @@ def judge_pair_scorer():
 def judge_eval(haikus_path: str | None = None) -> Task:
     return Task(
         dataset=pair_dataset(haikus_path),
-        solver=generate(),
+        solver=prepair_solver(),
         scorer=judge_pair_scorer(),
-        config=GenerateConfig(response_schema=_RESPONSE_SCHEMA),
     )
