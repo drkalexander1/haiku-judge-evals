@@ -1,0 +1,4 @@
+judge_model,authored_haikus_in_pool,self_pick_rate_by_self,self_pick_rate_by_others,self_bias,n_position_consistent_pairs_involving_self
+claude-haiku-4-5,True,0.2692307692307692,0.28,-0.010769230769230809,26
+claude-sonnet-4-6,True,0.896551724137931,0.55,0.346551724137931,29
+gpt-4o-mini,True,0.6666666666666666,0.49019607843137253,0.1764705882352941,24
