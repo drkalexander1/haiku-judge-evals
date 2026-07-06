@@ -6,21 +6,20 @@ C(N, 2) pairs. Each pair is judged in BOTH position orientations (Haiku A/B
 order swapped) -- the "Mirror Test" -- so report.py can discard votes that
 flip based on position alone rather than trust a single hashed ordering.
 
-Each orientation is judged with PRePair (Pointwise Reasoning within Pairwise
-frameworks, cf. Jeong et al. 2025 "The Comparative Trap"): the two haikus are
-first critiqued in complete isolation against a fixed rubric, and only those
-critiques -- not the raw haiku text -- are shown to the model for the final
-A/B decision. This targets the mechanism behind the Comparative Trap: judges
-anchoring on side-by-side stylistic impressions instead of rubric criteria.
-
-This means every (scenario, pair, orientation) sample costs 3 model calls
-(critique A, critique B, final decision) instead of 1 -- expect roughly 6x
-the inference cost of a naive single-pass pairwise eval.
+Default judging is one direct side-by-side call per orientation (120 calls per
+judge at 3 authors x 20 scenarios). Pass ``-T prepair=true`` to use PRePair
+instead: two isolated pointwise critiques plus a final decision from those
+critiques only (360 calls per judge at the same scale).
 
 Run:
     inspect eval src/inspect_eval.py \
       --model openai/gpt-4o-mini,anthropic/claude-haiku-4-5,anthropic/claude-sonnet-4-6 \
       --log-dir logs/frontier-judged
+
+    # Full PRePair protocol (~3x the default cost)
+    inspect eval src/inspect_eval.py -T prepair=true \
+      --model openai/gpt-4o-mini,anthropic/claude-haiku-4-5,anthropic/claude-sonnet-4-6 \
+      --log-dir logs/frontier-judged-prepair
 
     python -m src.report logs/frontier-judged --output results/frontier-judged
 """
@@ -42,6 +41,7 @@ from src.schema import (
     JudgePairRating,
     PointwiseCritique,
     load_haikus_to_judge,
+    load_judge_prompt_template,
     load_pointwise_prompt_template,
     load_prepair_final_prompt_template,
 )
@@ -103,6 +103,28 @@ def pair_dataset(haikus_path=None) -> MemoryDataset:
                     )
                 )
     return MemoryDataset(samples, name="haiku_pairs")
+
+
+@solver
+def pairwise_solver():
+    """One blind side-by-side A/B pick per orientation (Mirror Test only)."""
+
+    template = load_judge_prompt_template()
+
+    async def solve(state: TaskState, generate: Generate) -> TaskState:
+        meta = state.metadata
+        state.messages = [
+            ChatMessageUser(
+                content=template.format(
+                    subject=meta["subject"],
+                    haiku_a_text=meta["haiku_left_text"],
+                    haiku_b_text=meta["haiku_right_text"],
+                )
+            )
+        ]
+        return await generate(state, response_schema=_DECISION_SCHEMA)
+
+    return solve
 
 
 @solver
@@ -186,9 +208,10 @@ def judge_pair_scorer():
 
 
 @task
-def judge_eval(haikus_path: str | None = None) -> Task:
+def judge_eval(haikus_path: str | None = None, prepair: bool = False) -> Task:
+    solver = prepair_solver() if prepair else pairwise_solver()
     return Task(
         dataset=pair_dataset(haikus_path),
-        solver=prepair_solver(),
+        solver=solver,
         scorer=judge_pair_scorer(),
     )

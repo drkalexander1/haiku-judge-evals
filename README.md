@@ -7,18 +7,13 @@ Companion to [Haiku-evals](../Haiku-evals), which generates the haikus this eval
 ## Design
 
 1. **Ingest** haikus from a completed Haiku-evals generation run (`results/<run>/predictions.jsonl` + `scenarios_snapshot.yaml`). Each haiku keeps its true author model as hidden ground truth (`author_model`), never shown to the judge.
-2. **Pair, within scenario, both orientations.** Every `scenario_id` (a subject + prompt variant) has one haiku per author model. For N authors that's C(N, 2) pairs per scenario -- at 3 authors x 20 scenarios, 60 pairs. Each pair is judged in **both** position orientations (Haiku A/B order swapped) -- the "Mirror Test" -- so a vote only counts if the judge picks the same author regardless of which side it's shown on. Position-driven flips are discarded as noise rather than trusted. This doubles sample count to 120.
-3. **Judge, blind, via PRePair.** Every judge model in the `--model` list judges every pair -- including pairs where one of the haikus is its own -- without being told who wrote what. Naive side-by-side pairwise judging is vulnerable to the "Comparative Trap" (Jeong et al., BlackboxNLP 2025): judges anchoring on superficial stylistic impressions instead of rubric criteria when two subjective texts are shown together. To break that, each orientation runs three model calls instead of one:
-   - Critique Haiku A in isolation (syllable count, kigo/seasonal word, imagery, 1-10 quality) -- no visibility of Haiku B.
-   - Critique Haiku B in isolation, same rubric.
-   - Final decision, shown only the two critiques (not the raw haiku text): `preferred` ("A"/"B"), `preferred_rating` (1-10), `syllable_correct_a` / `syllable_correct_b` (checked against `syllable_perfect_actual`, computed programmatically at ingest time).
-
-   Net cost: ~6x the inference calls of a naive single-pass pairwise eval (2 orientations x 3 calls each vs. 1).
+2. **Pair, within scenario, both orientations.** Every `scenario_id` (a subject + prompt variant) has one haiku per author model. For N authors that's C(N, 2) pairs per scenario -- at 3 authors x 20 scenarios, 60 pairs. Each pair is judged in **both** position orientations (Haiku A/B order swapped) -- the "Mirror Test" -- so a vote only counts if the judge picks the same author regardless of which side it's shown on. Position-driven flips are discarded as noise rather than trusted. This doubles sample count to 120 per judge.
+3. **Judge, blind.** Every judge model in the `--model` list judges every pair -- including pairs where one of the haikus is its own -- without being told who wrote what. **Default:** one direct side-by-side A/B call per orientation (`prompts/judge_pairwise_v1.txt`) -- 120 calls per judge at 3 authors x 20 scenarios, 360 total for three judges. **Optional PRePair** (`-T prepair=true`): each orientation runs three model calls instead of one -- isolated critiques of Haiku A and B, then a final decision from those critiques only (Jeong et al., BlackboxNLP 2025 "Comparative Trap"). That triples cost to 360 calls per judge but breaks side-by-side stylistic anchoring.
 4. **Analyze.** For the eval to measure self-preference for a given model, that model needs to appear in **both** the source generation run's author list and this eval's `--model` list.
 
 Pairwise comparison (vs. absolute 1-10 scoring of each haiku independently) sidesteps a real problem: models differ in scale calibration (some hand out 8s liberally, others are harsh graders), which can swamp a subtle preference signal. A binary A/B pick cancels that out. The cost: pairing scales as C(N, 2) in the number of author models, not N -- fine at 3 authors, worth remembering before scaling the model set up.
 
-This design targets three documented LLM-judge biases: **self-preference/nepotism bias** (Panickssery et al., NeurIPS 2024 -- judges recognize and favor their own generations), the **Comparative Trap** (addressed by PRePair, above), and **positional bias** (addressed by the Mirror Test, above).
+This design targets three documented LLM-judge biases: **self-preference/nepotism bias** (Panickssery et al., NeurIPS 2024 -- judges recognize and favor their own generations), the **Comparative Trap** (addressed optionally by PRePair), and **positional bias** (addressed by the Mirror Test).
 
 ## Metrics (`src/report.py`)
 
@@ -46,10 +41,15 @@ cp .env.example .env   # add API keys
 # 1. Pull haikus from an existing Haiku-evals run
 python -m src.ingest --source ../Haiku-evals/results/frontier
 
-# 2. Every listed model judges every pair, blind
+# 2. Every listed model judges every pair, blind (Mirror Test; 360 LLM calls for 3 judges x 20 scenarios)
 inspect eval src/inspect_eval.py \
   --model openai/gpt-4o-mini,anthropic/claude-haiku-4-5,anthropic/claude-sonnet-4-6 \
   --log-dir logs/frontier-judged
+
+# Optional: full PRePair protocol (~1,080 LLM calls at the same scale)
+# inspect eval src/inspect_eval.py -T prepair=true \
+#   --model openai/gpt-4o-mini,anthropic/claude-haiku-4-5,anthropic/claude-sonnet-4-6 \
+#   --log-dir logs/frontier-judged-prepair
 
 # 3. Export self-bias tables
 python -m src.report logs/frontier-judged --output results/frontier-judged
@@ -65,8 +65,8 @@ python -m src.report logs/frontier-judged --output results/frontier-judged
 
 - `self_bias` is only defined for judge models that also authored haikus in the source run -- use the same model set for generation and judging to get a full picture.
 - One rating per (judge, pair, orientation); no repeated sampling, so per-judge bias estimates carry sampling noise from LLM output variance. Re-run with `--epochs` in Inspect if you need error bars.
-- Pair count grows as C(N, 2) in the number of author models, x2 for orientation, x3 for PRePair's isolated-critique calls -- fine for a handful of models (3 authors x 20 scenarios = 360 model calls per judge), worth reconsidering (e.g. sampling a subset of pairs) if the model set grows much larger.
-- PRePair breaks the Comparative Trap but is only as good as the pointwise rubric -- it can't catch quality dimensions the rubric doesn't ask about, and the final decision step still trusts the critiques' self-reported syllable calls rather than re-deriving them.
+- Pair count grows as C(N, 2) in the number of author models, x2 for orientation, x3 more if you opt into PRePair -- fine for a handful of models (3 authors x 20 scenarios = 120 calls per judge by default), worth reconsidering (e.g. sampling a subset of pairs) if the model set grows much larger.
+- Default side-by-side judging is cheaper but more exposed to the Comparative Trap; PRePair is available when you want that control and can pay ~3x the judge cost.
 - All judges in the current default `--model` list are Anthropic + OpenAI mini-tier models; there's no fully "un-invested" third-party judge (e.g. Gemini) in the loop yet to fully rule out family-level bias rather than model-level bias.
 
 ## License
