@@ -1,0 +1,4 @@
+model,win_rate_excl_self_judged,n_pairs
+claude-haiku-4-5,0.28,50
+claude-sonnet-4-6,0.55,40
+gpt-4o-mini,0.49019607843137253,51

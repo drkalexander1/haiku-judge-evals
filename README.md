@@ -55,6 +55,8 @@ inspect eval src/inspect_eval.py \
 python -m src.report logs/frontier-judged --output results/frontier-judged
 ```
 
+See [RESULTS.md](RESULTS.md) for a worked example from the frontier judged run.
+
 ## Outputs (`results/<run>/`)
 
 - `pairs.csv` -- every (judge, pair) rating, joined with ground truth

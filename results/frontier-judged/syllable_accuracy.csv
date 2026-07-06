@@ -1,0 +1,4 @@
+judge_model,syllable_judgment_accuracy
+claude-haiku-4-5,0.2708333333333333
+claude-sonnet-4-6,0.3
+gpt-4o-mini,0.17916666666666667

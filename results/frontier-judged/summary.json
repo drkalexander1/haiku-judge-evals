@@ -1,0 +1,98 @@
+{
+  "n_pair_ratings": 360,
+  "n_position_consistent_votes": 110,
+  "judge_models": [
+    "claude-haiku-4-5",
+    "claude-sonnet-4-6",
+    "gpt-4o-mini"
+  ],
+  "author_models": [
+    "claude-haiku-4-5",
+    "claude-sonnet-4-6",
+    "gpt-4o-mini"
+  ],
+  "self_bias": {
+    "claude-haiku-4-5": {
+      "authored_haikus_in_pool": true,
+      "self_pick_rate_by_self": 0.2692307692307692,
+      "self_pick_rate_by_others": 0.28,
+      "self_bias": -0.010769230769230809,
+      "n_position_consistent_pairs_involving_self": 26
+    },
+    "claude-sonnet-4-6": {
+      "authored_haikus_in_pool": true,
+      "self_pick_rate_by_self": 0.896551724137931,
+      "self_pick_rate_by_others": 0.55,
+      "self_bias": 0.346551724137931,
+      "n_position_consistent_pairs_involving_self": 29
+    },
+    "gpt-4o-mini": {
+      "authored_haikus_in_pool": true,
+      "self_pick_rate_by_self": 0.6666666666666666,
+      "self_pick_rate_by_others": 0.49019607843137253,
+      "self_bias": 0.1764705882352941,
+      "n_position_consistent_pairs_involving_self": 24
+    }
+  },
+  "win_rates": {
+    "claude-haiku-4-5": {
+      "win_rate_excl_self_judged": 0.28,
+      "n_pairs": 50
+    },
+    "claude-sonnet-4-6": {
+      "win_rate_excl_self_judged": 0.55,
+      "n_pairs": 40
+    },
+    "gpt-4o-mini": {
+      "win_rate_excl_self_judged": 0.49019607843137253,
+      "n_pairs": 51
+    }
+  },
+  "position_bias": {
+    "claude-haiku-4-5": {
+      "a_pick_rate": 0.7083333333333334,
+      "flip_rate": 0.41666666666666663
+    },
+    "claude-sonnet-4-6": {
+      "a_pick_rate": 0.6166666666666667,
+      "flip_rate": 0.2666666666666667
+    },
+    "gpt-4o-mini": {
+      "a_pick_rate": 0.35833333333333334,
+      "flip_rate": 0.4833333333333333
+    }
+  },
+  "syllable_judgment_accuracy": {
+    "claude-haiku-4-5": {
+      "syllable_judgment_accuracy": 0.2708333333333333
+    },
+    "claude-sonnet-4-6": {
+      "syllable_judgment_accuracy": 0.3
+    },
+    "gpt-4o-mini": {
+      "syllable_judgment_accuracy": 0.17916666666666667
+    }
+  },
+  "bradley_terry": {
+    "claude-sonnet-4-6": {
+      "bt_strength": 1.1752230911714354,
+      "elo": 1528.0481264109787,
+      "n_wins": 9.0
+    },
+    "gpt-4o-mini": {
+      "bt_strength": 1.1594018724245954,
+      "elo": 1525.6935989669503,
+      "n_wins": 14.0
+    },
+    "claude-haiku-4-5": {
+      "bt_strength": 0.6653750364039698,
+      "elo": 1429.226601176765,
+      "n_wins": 8.0
+    }
+  },
+  "eval_logs": [
+    "2026-07-06T00-06-51-00-00_judge-eval_3oYgyBquVqwYkqUKxvF3FM.eval",
+    "2026-07-06T00-06-51-00-00_judge-eval_BUZ9vpJxWQYQtGrcnxTKY9.eval",
+    "2026-07-06T00-06-51-00-00_judge-eval_g7dPTDip8ByfWxesAKncie.eval"
+  ]
+}
