@@ -2,11 +2,11 @@
 
 Blind pairwise LLM-judge eval for self-preference bias: when a model judges two anonymous haikus for the same subject, does it pick its own more often than an independent judge would?
 
-Companion to [Haiku-evals](https://github.com/drkalexander1/Haiku-evals), which generates the haikus this eval judges.
+Companion to [haiku-evals](https://github.com/drkalexander1/haiku-evals), which generates the haikus this eval judges.
 
 ## Design
 
-1. **Ingest** haikus from a completed Haiku-evals generation run (`results/<run>/predictions.jsonl` + `scenarios_snapshot.yaml`). Each haiku keeps its true author model as hidden ground truth (`author_model`), never shown to the judge.
+1. **Ingest** haikus from a completed haiku-evals generation run (`results/<run>/predictions.jsonl` + `scenarios_snapshot.yaml`). Each haiku keeps its true author model as hidden ground truth (`author_model`), never shown to the judge.
 2. **Pair, within scenario, both orientations.** Every `scenario_id` (a subject + prompt variant) has one haiku per author model. For N authors that's C(N, 2) pairs per scenario -- at 3 authors x 20 scenarios, 60 pairs. Each pair is judged in **both** position orientations (Haiku A/B order swapped) -- the "Mirror Test" -- so a vote only counts if the judge picks the same author regardless of which side it's shown on. Position-driven flips are discarded as noise rather than trusted. This doubles sample count to 120 per judge.
 3. **Judge, blind.** Every judge model in the `--model` list judges every pair -- including pairs where one of the haikus is its own -- without being told who wrote what. **Default:** one direct side-by-side A/B call per orientation (`prompts/judge_pairwise_v1.txt`) -- 120 calls per judge at 3 authors x 20 scenarios, 360 total for three judges. **Optional PRePair** (`-T prepair=true`): each orientation runs three model calls instead of one -- isolated critiques of Haiku A and B, then a final decision from those critiques only (Jeong et al., BlackboxNLP 2025 "Comparative Trap"). That triples cost to 360 calls per judge but breaks side-by-side stylistic anchoring.
 4. **Analyze.** For the eval to measure self-preference for a given model, that model needs to appear in **both** the source generation run's author list and this eval's `--model` list.
@@ -38,8 +38,8 @@ python -m venv .venv
 pip install -e .
 cp .env.example .env   # add API keys
 
-# 1. Pull haikus from an existing Haiku-evals run
-python -m src.ingest --source ../Haiku-evals/results/frontier
+# 1. Pull haikus from an existing haiku-evals run
+python -m src.ingest --source ../haiku-evals/results/frontier
 
 # 2. Every listed model judges every pair, blind (Mirror Test; 360 LLM calls for 3 judges x 20 scenarios)
 inspect eval src/inspect_eval.py \
