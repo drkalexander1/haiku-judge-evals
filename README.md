@@ -2,7 +2,7 @@
 
 Blind pairwise LLM-judge eval for self-preference bias: when a model judges two anonymous haikus for the same subject, does it pick its own more often than an independent judge would?
 
-Companion to [Haiku-evals](../Haiku-evals), which generates the haikus this eval judges.
+Companion to [Haiku-evals](https://github.com/drkalexander1/Haiku-evals), which generates the haikus this eval judges.
 
 ## Design
 
