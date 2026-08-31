@@ -11,12 +11,14 @@ Self-preference bias for judge model J (only computable for J that also
 authored haikus in the source run, i.e. J appears as author_x/author_y
 somewhere in the pool), computed over position-consistent votes only:
 
-  self_pick_rate_by_self   = P(J picks its own haiku | J is judging, J is one of the two authors)
-  self_pick_rate_by_others = P(other judges pick J's haiku | J is one of the two authors)
+  self_pick_rate_by_self         = P(J picks its own haiku | J is judging, J is one of the two authors)
+  self_pick_rate_by_others       = P(other judges pick J's haiku | J is one of the two authors)
+  self_pick_rate_by_independent  = P(non-author judges pick J's haiku | J is one of the two authors)
   self_bias = self_pick_rate_by_self - self_pick_rate_by_others
 
 Positive self_bias means J favors its own haiku more than an independent
-judge would, for the same pair.
+judge would, for the same pair. Non-author judges (week 2: Gemini) never
+get a self-bias row; they only fill ``self_pick_rate_by_independent``.
 
 `bradley_terry.csv` converts position-consistent, non-self-judged wins into
 an Elo-scaled Bradley-Terry rating per author model -- a more principled
@@ -34,10 +36,30 @@ import pandas as pd
 
 SCORER_NAME = "judge_pair_scorer"
 
+def _json_ready(obj):
+    """Convert NaN/numpy scalars so summary.json is valid JSON (null, not NaN)."""
+    if isinstance(obj, dict):
+        return {k: _json_ready(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_json_ready(v) for v in obj]
+    if isinstance(obj, (float, np.floating)) and pd.isna(obj):
+        return None
+    if isinstance(obj, (np.floating, np.integer)):
+        return obj.item()
+    return obj
+
 
 def _normalize_model(name: str) -> str:
     """Strip provider prefix, e.g. 'anthropic/claude-haiku-4-5' -> 'claude-haiku-4-5'."""
     return name.rsplit("/", 1)[-1]
+
+
+def _protocol_from_log(log) -> str:
+    """``prepair`` vs ``pairwise`` from Inspect task args (``-T prepair=true``)."""
+    task_args = getattr(log.eval, "task_args", None) or {}
+    if isinstance(task_args, dict) and task_args.get("prepair"):
+        return "prepair"
+    return "pairwise"
 
 
 def _collect_eval_paths(path: Path) -> list[Path]:
@@ -51,11 +73,12 @@ def _collect_eval_paths(path: Path) -> list[Path]:
     return logs
 
 
-def frame_from_eval_log(log_path: Path) -> pd.DataFrame:
+def frame_from_eval_log(log_path: Path) -> tuple[pd.DataFrame, str]:
     from inspect_ai.log import read_eval_log
 
     log = read_eval_log(str(log_path))
     judge_model = _normalize_model(log.eval.model or log_path.stem)
+    protocol = _protocol_from_log(log)
 
     rows = []
     for sample in log.samples or []:
@@ -84,15 +107,22 @@ def frame_from_eval_log(log_path: Path) -> pd.DataFrame:
                 "eval_log": log_path.name,
             }
         )
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows), protocol
 
 
-def frame_from_eval_paths(paths: list[Path]) -> pd.DataFrame:
-    frames = [frame_from_eval_log(p) for p in paths]
-    frames = [f for f in frames if not f.empty]
+def frame_from_eval_paths(paths: list[Path]) -> tuple[pd.DataFrame, str]:
+    frames: list[pd.DataFrame] = []
+    protocols: list[str] = []
+    for p in paths:
+        frame, protocol = frame_from_eval_log(p)
+        if not frame.empty:
+            frames.append(frame)
+            protocols.append(protocol)
     if not frames:
         raise ValueError("No scored samples found in eval log(s)")
-    return pd.concat(frames, ignore_index=True)
+    unique = sorted(set(protocols))
+    protocol = unique[0] if len(unique) == 1 else ",".join(unique)
+    return pd.concat(frames, ignore_index=True), protocol
 
 
 def build_position_consistency_table(df: pd.DataFrame) -> pd.DataFrame:
@@ -127,6 +157,7 @@ def build_self_bias_table(votes: pd.DataFrame) -> pd.DataFrame:
     votes = votes[votes["consistent"]]
     judge_models = sorted(votes["judge_model"].unique())
     all_authors = set(votes["author_x"]).union(votes["author_y"])
+    independent_judges = [m for m in judge_models if m not in all_authors]
 
     rows = []
     for j in judge_models:
@@ -137,9 +168,11 @@ def build_self_bias_table(votes: pd.DataFrame) -> pd.DataFrame:
 
         by_self = involves_j[involves_j["judge_model"] == j]
         by_others = involves_j[involves_j["judge_model"] != j]
+        by_independent = involves_j[involves_j["judge_model"].isin(independent_judges)]
 
         self_rate = by_self["self_preferred"].mean() if not by_self.empty else None
         others_rate = by_others["self_preferred"].mean() if not by_others.empty else None
+        independent_rate = by_independent["self_preferred"].mean() if not by_independent.empty else None
 
         rows.append(
             {
@@ -147,6 +180,7 @@ def build_self_bias_table(votes: pd.DataFrame) -> pd.DataFrame:
                 "authored_haikus_in_pool": j in all_authors,
                 "self_pick_rate_by_self": self_rate,
                 "self_pick_rate_by_others": others_rate,
+                "self_pick_rate_by_independent": independent_rate,
                 "self_bias": (self_rate - others_rate) if self_rate is not None and others_rate is not None else None,
                 "n_position_consistent_pairs_involving_self": len(by_self),
             }
@@ -243,13 +277,16 @@ def build_bradley_terry_table(votes: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def build_summary(df: pd.DataFrame, votes: pd.DataFrame, *, eval_logs: list[str]) -> dict:
+def build_summary(
+    df: pd.DataFrame, votes: pd.DataFrame, *, eval_logs: list[str], protocol: str
+) -> dict:
     self_bias = build_self_bias_table(votes)
     win_rates = build_win_rate_table(votes)
     position_bias = build_position_bias_table(df, votes)
     syllable_accuracy = build_syllable_accuracy_table(df)
     bradley_terry = build_bradley_terry_table(votes)
     return {
+        "protocol": protocol,
         "n_pair_ratings": len(df),
         "n_position_consistent_votes": int(votes["consistent"].sum()),
         "judge_models": sorted(df["judge_model"].unique().tolist()),
@@ -273,14 +310,14 @@ def write_run_outputs(df: pd.DataFrame, votes: pd.DataFrame, output_dir: Path, s
     build_syllable_accuracy_table(df).to_csv(output_dir / "syllable_accuracy.csv", index=False)
     build_bradley_terry_table(votes).to_csv(output_dir / "bradley_terry.csv", index=False)
     with (output_dir / "summary.json").open("w", encoding="utf-8") as f:
-        json.dump(summary, f, indent=2, default=str)
+        json.dump(_json_ready(summary), f, indent=2, default=str, allow_nan=False)
 
 
 def report_eval_logs(log_path: Path, output_dir: Path) -> dict:
     paths = _collect_eval_paths(log_path)
-    df = frame_from_eval_paths(paths)
+    df, protocol = frame_from_eval_paths(paths)
     votes = build_position_consistency_table(df)
-    summary = build_summary(df, votes, eval_logs=[p.name for p in paths])
+    summary = build_summary(df, votes, eval_logs=[p.name for p in paths], protocol=protocol)
     write_run_outputs(df, votes, output_dir, summary)
     return summary
 
@@ -292,7 +329,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     summary = report_eval_logs(args.log, args.output)
-    print(json.dumps(summary["self_bias"], indent=2, default=str))
+    print(json.dumps(_json_ready(summary["self_bias"]), indent=2, default=str, allow_nan=False))
     print(f"Wrote outputs to {args.output}")
     return 0
 

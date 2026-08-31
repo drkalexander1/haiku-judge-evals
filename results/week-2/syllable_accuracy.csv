@@ -1,0 +1,5 @@
+judge_model,syllable_judgment_accuracy
+claude-haiku-4-5,0.16666666666666666
+claude-sonnet-4-6,0.375
+gemini-3.5-flash-lite,0.2833333333333333
+gpt-4o-mini,0.35833333333333334

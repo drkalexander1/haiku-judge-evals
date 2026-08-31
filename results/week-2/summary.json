@@ -1,0 +1,111 @@
+{
+  "protocol": "prepair",
+  "n_pair_ratings": 480,
+  "n_position_consistent_votes": 155,
+  "judge_models": [
+    "claude-haiku-4-5",
+    "claude-sonnet-4-6",
+    "gemini-3.5-flash-lite",
+    "gpt-4o-mini"
+  ],
+  "author_models": [
+    "claude-haiku-4-5",
+    "claude-sonnet-4-6",
+    "gpt-4o-mini"
+  ],
+  "self_bias": {
+    "claude-haiku-4-5": {
+      "authored_haikus_in_pool": true,
+      "self_pick_rate_by_self": 0.34782608695652173,
+      "self_pick_rate_by_others": 0.45569620253164556,
+      "self_pick_rate_by_independent": 0.5,
+      "self_bias": -0.10787011557512383,
+      "n_position_consistent_pairs_involving_self": 23
+    },
+    "claude-sonnet-4-6": {
+      "authored_haikus_in_pool": true,
+      "self_pick_rate_by_self": 0.6666666666666666,
+      "self_pick_rate_by_others": 0.6986301369863014,
+      "self_pick_rate_by_independent": 0.6956521739130435,
+      "self_bias": -0.03196347031963476,
+      "n_position_consistent_pairs_involving_self": 30
+    },
+    "gpt-4o-mini": {
+      "authored_haikus_in_pool": true,
+      "self_pick_rate_by_self": 0.4090909090909091,
+      "self_pick_rate_by_others": 0.37349397590361444,
+      "self_pick_rate_by_independent": 0.3333333333333333,
+      "self_bias": 0.03559693318729468,
+      "n_position_consistent_pairs_involving_self": 22
+    }
+  },
+  "win_rates": {
+    "claude-haiku-4-5": {
+      "win_rate_excl_self_judged": 0.45569620253164556,
+      "n_pairs": 79
+    },
+    "claude-sonnet-4-6": {
+      "win_rate_excl_self_judged": 0.6986301369863014,
+      "n_pairs": 73
+    },
+    "gpt-4o-mini": {
+      "win_rate_excl_self_judged": 0.37349397590361444,
+      "n_pairs": 83
+    }
+  },
+  "position_bias": {
+    "claude-haiku-4-5": {
+      "a_pick_rate": 0.5083333333333333,
+      "flip_rate": 0.3833333333333333
+    },
+    "claude-sonnet-4-6": {
+      "a_pick_rate": 0.5666666666666667,
+      "flip_rate": 0.19999999999999996
+    },
+    "gemini-3.5-flash-lite": {
+      "a_pick_rate": 0.65,
+      "flip_rate": 0.4
+    },
+    "gpt-4o-mini": {
+      "a_pick_rate": 0.6333333333333333,
+      "flip_rate": 0.43333333333333335
+    }
+  },
+  "syllable_judgment_accuracy": {
+    "claude-haiku-4-5": {
+      "syllable_judgment_accuracy": 0.16666666666666666
+    },
+    "claude-sonnet-4-6": {
+      "syllable_judgment_accuracy": 0.375
+    },
+    "gemini-3.5-flash-lite": {
+      "syllable_judgment_accuracy": 0.2833333333333333
+    },
+    "gpt-4o-mini": {
+      "syllable_judgment_accuracy": 0.35833333333333334
+    }
+  },
+  "bradley_terry": {
+    "claude-sonnet-4-6": {
+      "bt_strength": 1.6504028959203674,
+      "elo": 1587.0359908045384,
+      "n_wins": 35.0
+    },
+    "claude-haiku-4-5": {
+      "bt_strength": 0.7572924478053866,
+      "elo": 1451.7054503158474,
+      "n_wins": 24.0
+    },
+    "gpt-4o-mini": {
+      "bt_strength": 0.5923046562742461,
+      "elo": 1409.0180587063944,
+      "n_wins": 21.0
+    }
+  },
+  "eval_logs": [
+    "2026-08-29T00-36-03-00-00_judge-eval_gomvXUvpjwDArj52c6K49s.eval",
+    "2026-08-29T00-36-03-00-00_judge-eval_XfjwBQ7ivL7DqJU9s94DeM.eval",
+    "2026-08-29T00-36-04-00-00_judge-eval_3H272HikR72A74sMqJ7ZDj.eval",
+    "2026-08-29T01-40-20-00-00_judge-eval_ioz3MsQiSTxJ6Gx9ZWhsxZ.eval"
+  ]
+}

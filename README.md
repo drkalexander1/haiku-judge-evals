@@ -21,6 +21,7 @@ This design targets three documented LLM-judge biases: **self-preference/nepotis
 |---|---|---|
 | `self_bias.csv` | `self_pick_rate_by_self` | P(J picks its own haiku \| J is judging a pair it authored) |
 | `self_bias.csv` | `self_pick_rate_by_others` | P(other judges pick J's haiku, same pairs) |
+| `self_bias.csv` | `self_pick_rate_by_independent` | P(non-author judges pick J's haiku, same pairs) -- week 2: Gemini, which never authored in the pool |
 | `self_bias.csv` | `self_bias` | `self_pick_rate_by_self - self_pick_rate_by_others` -- positive means J favors its own haiku more than an independent judge would |
 | `win_rates.csv` | `win_rate_excl_self_judged` | Consensus quality proxy: how often a model's haiku wins, judged only by *other* models, over position-consistent votes only (keeps self-bias from leaking into the quality ranking) |
 | `position_bias.csv` | `a_pick_rate` | Sanity check -- should hover near 50% if a judge isn't just favoring whichever haiku is shown first |
@@ -41,35 +42,49 @@ cp .env.example .env   # add API keys
 # 1. Pull haikus from an existing Haiku-evals run
 python -m src.ingest --source ../Haiku-evals/results/frontier
 
-# 2. Every listed model judges every pair, blind (Mirror Test; 360 LLM calls for 3 judges x 20 scenarios)
+# 2. Week 1 -- direct pairwise (Mirror Test; 360 LLM calls for 3 judges x 20 scenarios)
 inspect eval src/inspect_eval.py \
   --model openai/gpt-4o-mini,anthropic/claude-haiku-4-5,anthropic/claude-sonnet-4-6 \
   --log-dir logs/frontier-judged
-
-# Optional: full PRePair protocol (~1,080 LLM calls at the same scale)
-# inspect eval src/inspect_eval.py -T prepair=true \
-#   --model openai/gpt-4o-mini,anthropic/claude-haiku-4-5,anthropic/claude-sonnet-4-6 \
-#   --log-dir logs/frontier-judged-prepair
 
 # 3. Export self-bias tables
 python -m src.report logs/frontier-judged --output results/frontier-judged
 ```
 
-See [RESULTS.md](RESULTS.md) for a worked example from the frontier judged run.
+See [RESULTS.md](RESULTS.md) for the week-1 pairwise run.
+
+### Week 2 -- PRePair + Gemini
+
+Same haiku pool as week 1, but each orientation uses isolated critiques then a decision from those critiques only (`-T prepair=true`). A fourth judge (`google/gemini-3.5-flash-lite`) did not author any haikus, so it contributes only as an independent "others" vote -- it has no `self_bias` of its own. ~1,440 LLM calls (4 judges x 120 samples x 3 PRePair steps). Gemini 2.5/3.6 Flash were unavailable or quota-exhausted on the free tier; 3.5 Flash Lite is the Flash-class out-of-family peer.
+
+```bash
+# Smoke: 4 samples x 4 judges x 3 calls (~48) -- confirm Gemini slug + JSON schema
+inspect eval src/inspect_eval.py -T prepair=true --limit 4 \
+  --model openai/gpt-4o-mini,anthropic/claude-haiku-4-5,anthropic/claude-sonnet-4-6,google/gemini-3.5-flash-lite \
+  --log-dir logs/week-2-smoke
+python -m src.report logs/week-2-smoke --output results/week-2-smoke
+
+# Full run
+inspect eval src/inspect_eval.py -T prepair=true \
+  --model openai/gpt-4o-mini,anthropic/claude-haiku-4-5,anthropic/claude-sonnet-4-6,google/gemini-3.5-flash-lite \
+  --log-dir logs/week-2
+python -m src.report logs/week-2 --output results/week-2
+```
+
+See [RESULTS-week-2.md](RESULTS-week-2.md) for the PRePair comparison to week 1.
 
 ## Outputs (`results/<run>/`)
 
 - `pairs.csv` -- every (judge, pair) rating, joined with ground truth
 - `self_bias.csv`, `win_rates.csv`, `position_bias.csv`, `syllable_accuracy.csv` -- see Metrics above
-- `summary.json` -- all of the above, nested
+- `summary.json` -- all of the above, nested, plus `protocol` (`pairwise` or `prepair`)
 
 ## Caveats
 
-- `self_bias` is only defined for judge models that also authored haikus in the source run -- use the same model set for generation and judging to get a full picture.
+- `self_bias` is only defined for judge models that also authored haikus in the source run -- use the same model set for generation and judging to get a full picture. Week 2's Gemini judge is out-of-family on purpose: it never authored, so it has no self-bias row and instead fills `self_pick_rate_by_independent`.
 - One rating per (judge, pair, orientation); no repeated sampling, so per-judge bias estimates carry sampling noise from LLM output variance. Re-run with `--epochs` in Inspect if you need error bars.
-- Pair count grows as C(N, 2) in the number of author models, x2 for orientation, x3 more if you opt into PRePair -- fine for a handful of models (3 authors x 20 scenarios = 120 calls per judge by default), worth reconsidering (e.g. sampling a subset of pairs) if the model set grows much larger.
-- Default side-by-side judging is cheaper but more exposed to the Comparative Trap; PRePair is available when you want that control and can pay ~3x the judge cost.
-- All judges in the current default `--model` list are Anthropic + OpenAI mini-tier models; there's no fully "un-invested" third-party judge (e.g. Gemini) in the loop yet to fully rule out family-level bias rather than model-level bias.
+- Pair count grows as C(N, 2) in the number of author models, x2 for orientation, x3 more if you opt into PRePair -- fine for a handful of models (3 authors x 20 scenarios = 120 calls per judge by default; 360 with PRePair), worth reconsidering (e.g. sampling a subset of pairs) if the model set grows much larger.
+- Default side-by-side judging (week 1) is cheaper but more exposed to the Comparative Trap; PRePair (week 2) is the control for that, at ~3x the judge cost.
 
 ## License
 

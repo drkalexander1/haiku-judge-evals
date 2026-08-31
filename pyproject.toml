@@ -16,6 +16,7 @@ dependencies = [
     "pyyaml>=6.0",
     "syllables>=1.0.7",
     "inspect-ai>=0.3.0",
+    "google-genai>=1.0.0",
 ]
 
 [project.scripts]

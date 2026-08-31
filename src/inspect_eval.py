@@ -16,12 +16,12 @@ Run:
       --model openai/gpt-4o-mini,anthropic/claude-haiku-4-5,anthropic/claude-sonnet-4-6 \
       --log-dir logs/frontier-judged
 
-    # Full PRePair protocol (~3x the default cost)
+    # Week 2: PRePair + out-of-family Gemini (~1,440 calls)
     inspect eval src/inspect_eval.py -T prepair=true \
-      --model openai/gpt-4o-mini,anthropic/claude-haiku-4-5,anthropic/claude-sonnet-4-6 \
-      --log-dir logs/frontier-judged-prepair
+      --model openai/gpt-4o-mini,anthropic/claude-haiku-4-5,anthropic/claude-sonnet-4-6,google/gemini-3.5-flash-lite \
+      --log-dir logs/week-2
 
-    python -m src.report logs/frontier-judged --output results/frontier-judged
+    python -m src.report logs/week-2 --output results/week-2
 """
 
 from __future__ import annotations

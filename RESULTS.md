@@ -1,5 +1,7 @@
 # Results — frontier judged run (July 2026)
 
+This is **week 1** (direct pairwise, three author-judges). Week 2 reruns the same haiku pool with PRePair and an out-of-family Gemini judge: [RESULTS-week-2.md](RESULTS-week-2.md).
+
 Run: `results/frontier-judged` · Logs: `logs/frontier-judged/` (gitignored)
 
 **Protocol.** Default mirror-only pairwise judging (`prepair=false`): one blind side-by-side A/B call per orientation. Three judge models (`gpt-4o-mini`, `claude-haiku-4-5`, `claude-sonnet-4-6`) each judged all 120 mirror samples (60 unique pairs × 2 orientations) — **360 LLM calls** total. Haiku pool: 60 haikus from 20 scenarios × 3 author models (bundled `data/haikus_to_judge.jsonl`).
