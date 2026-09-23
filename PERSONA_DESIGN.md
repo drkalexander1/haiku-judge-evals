@@ -1,12 +1,11 @@
 # Persona judges — design sketch
 
-**Status:** design review with [Paul Davidson](https://github.com/PaulsForge).
-Nothing built, nothing run. This is the third run on the haiku-judge branch
-(week 1 direct pairwise, week 2 PRePair + Gemini). Comment on the PR rather
-than in a sidecar copy of this file.
+**Status:** signed off by Daniel, 2026-09-22. Predictions are **frozen:
+direction only, no numeric β thresholds.** Nothing built, nothing generated.
+This is week 3 on the haiku-judge branch (week 1 direct pairwise, week 2
+PRePair + Gemini). Paul takes the Inspect build from this freeze.
 
-**Round number:** TBD (week 3 if the existing pool is identifiable; otherwise
-a designed stimulus set comes first — see Step 0).
+**Round number:** week 3. Step 0 says the existing pool is identifiable.
 
 ## The question
 
@@ -58,10 +57,16 @@ P(pick left) = σ( β0 + β_form · (L1err_right − L1err_left)
   mirror filter. Report mirror-filtered numbers too, for comparability with
   weeks 1–2.
 
-A persona's effect is the shift in `β_form` / `β_topic` relative to the
-no-persona baseline, within judge. Every pair is judged under every
-condition, so this is a paired design and the baseline judgment of the same
-pair is available as a covariate.
+A persona's effect is the **sign** of the shift in `β_form` / `β_topic`
+relative to the no-persona baseline, within judge. Any signed movement is
+the datum — a small move the right way is a weak hit, a large move the
+wrong way is a miss. Report the βs, the shift vs P0, and intervals or a
+paired contrast; do not discard a correctly-signed shift as noise, and do
+not pre-register a magnitude cutoff. Step 0 can tell us the channels
+separate. It cannot tell us how hard a model follows an instruction.
+
+Every pair is judged under every condition, so this is a paired design and
+the baseline judgment of the same pair is available as a covariate.
 
 This is the random-utility / discrete-choice machinery from stated-preference
 economics, pointed at a model. It's the same toolkit the valuation eval uses,
@@ -75,7 +80,7 @@ secondary intensity signal, not the primary outcome.
 
 ## Conditions
 
-| condition | persona text (draft — to be written and length-matched) | frozen prediction |
+| condition | persona text (draft — to be written and length-matched) | frozen prediction (sign only) |
 |---|---|---|
 | **P0 none** | — | baseline |
 | **P1 placebo** | a named person with no aesthetic values ("You are Sam. You live in a mid-sized city.") | no change on anything — controls for *having* a persona |
@@ -117,30 +122,30 @@ human ratings and should be scoped separately.
   on. Same model snapshot either way; blocked is easier to debug if a
   condition fails partway.
 
-## Step 0 — free, and gates everything else
+## Step 0 — done (2026-09-22). Pool is identifiable.
 
-Before any API call: from the existing pool, compute `L1err` and `cos` per
-haiku, then check
-1. the correlation between Δform and Δtopic across the 60 pairs, and
-2. how many pairs have a real gap on each.
+`L1err` is `|s1−5|+|s2−7|+|s3−5|` via `src/syllables_util.py`. Cosine is
+`subject_cosine_full` recomputed with `all-MiniLM-L6-v2` (same embedder as
+haiku-evals; the original generation-run scores are not in this repo).
+Tables: `results/step0/`.
 
-Only 10 of 60 haikus are exact 5-7-5, and the features may track author
-(Sonnet better on both). If the two features are highly correlated or barely
-vary, the β's aren't identifiable from this pool. Then Phase 2 comes
-first: a **designed stimulus set** that crosses form × grounding
-(perfect-form/off-subject, broken-form/on-subject, …) so the weights separate
-by construction.
+| check | result |
+|---|---|
+| n | 60 haikus, 60 unique author-pairs |
+| exact 5-7-5 | 10 / 60. Mean L1err 1.55 (range 0–4) |
+| mean cosine | 0.41 (range 0.16–0.62) |
+| corr(Δform, Δtopic) | **−0.10** |
+| form gap ≥ 1 | 45 / 60 |
+| \|Δtopic\| ≥ 0.05 | 38 / 60 |
+| tradeoff pairs (opposite sign) | 18 / 60 |
 
-`haikus_to_judge.jsonl` carries only `syllable_perfect_actual`. `L1err` can
-be recomputed with `src/syllables_util.py`, and `cos` joined from the haiku-evals
-run (verify the field is in its `predictions.jsonl`).
+Authors do not dominate both channels. Haiku is slightly closest to 5-7-5
+(mean L1err 1.45); Sonnet is slightly highest on cosine (0.43) and slightly
+worst on form (1.65). No designed stimulus set is required first.
 
-Numeric β thresholds get frozen **after** Step 0, once we know whether the
-features separate. Directional predictions (the table above) can be frozen
-now; magnitudes cannot.
-
-Daniel owns Step 0. It is a design gate, not an Inspect build. After it
-lands, we look at the table together on this PR.
+Step 0 is why magnitudes stay unfrozen: these numbers say the βs *can* be
+told apart, not how large a persona should move them. There is no prior
+persona run to take an effect size from.
 
 ## Build (small)
 
@@ -149,20 +154,19 @@ lands, we look at the table together on this PR.
    `ChatMessageSystem` with the persona text when persona ≠ none.
 3. `report.py`: persona column throughout, plus a `persona_effects.csv`
    (β's by judge × persona, and guardrail deltas vs. P0).
-4. Freeze the prediction table above in a commit **before** the first
-   generation — same move as R10.
+4. The prediction table above is frozen in this commit, **before** the
+   first generation — same move as R10. Sign only; no numeric cutoffs.
 
-Paul carries the Inspect build once Step 0 says the pool is usable.
+Paul carries the Inspect build from this freeze.
 Daniel owns the design, the frozen predictions, and the writeup framing.
 
 ## Split of work
 
-- **Daniel:** design, Step 0 identifiability check, frozen prediction table,
-  writeup framing.
+- **Daniel:** design, Step 0 (done), frozen prediction table, writeup
+  framing.
 - **Paul:** Inspect build (persona prompt files, `-T persona=`, report
-  column) after the freeze commit. Optional informal UI prompting on free
-  models in parallel for an early qualitative read — not a substitute for
-  Step 0.
+  column) from this freeze. Optional informal UI prompting on free models
+  in parallel — qualitative only.
 - **Compute:** ~1,800 short calls; a few dollars. Either of us can pay.
 - **Repo:** this one. Branch + PR into `haiku-judge-evals` so the existing
   data and report pipeline stay in place. Credit Paul in the README when
@@ -200,13 +204,11 @@ Folded in from the annotated copy, so they live on this PR.
 consistent across models (lower between-model variance) and reduce
 self-preference vs. the no-persona control.
 
-That is a different primary claim than the β table above. This round still
-treats directional taste-weight shifts as the thing a persona is launched to
-move, and between-model agreement / self-preference as outcomes we will
-report (self-preference is already a guardrail: predicted not to move). If
-the interesting result is "personas make judges agree with each other," that
-is measurable from the same run and can be promoted in the writeup if it
-shows up. Confirming that split is one of the asks on this PR.
+Settled: that is not a co-primary. This round treats directional
+taste-weight shifts as the thing a persona is launched to move. Models
+trending together on those signs, and do-no-harm on self-preference, are
+guardrails. Between-model agreement (models picking the same winner more
+often) is not a study question. It remains measurable from the same run.
 
 **Stated vs. assigned persona.** First log whatever persona the judge
 chooses, then assign one, then maybe join several as a counsel. Two
@@ -225,32 +227,23 @@ XYZ` change the pick?
 **Sampling.** Sequential mix of P0–P4 vs. all P0, then all P1, etc.
 
 **Replies to the original open questions.** Three-outcome framing is fine;
-freeze expected β thresholds ahead of time; demographics can stay out. No
-strong opinion on git structure. Happy to chip in on compute. Next week is
-probably okay; unclear how to contribute to Step 0 — maybe look at outputs
-together, or do informal UI prompting on free models for an early read.
+demographics can stay out. No strong opinion on git structure. Happy to
+chip in on compute. (The "freeze expected β thresholds" note is superseded:
+signs are frozen, magnitudes are not.)
 
 ---
 
-## Proposed calls for this PR
+## Frozen calls (Daniel sign-off, 2026-09-22)
 
-Please comment if any of these is the wrong call. Otherwise this is what
-Step 0 and the later build will follow.
-
-1. **Keep the assigned-persona 5-arm design (P0–P4) for this round.** Defer
-   "state your persona," prompt-order swaps, and counsel-of-personas to a
-   later round. Those are real questions; they are also extra cells, and
-   they don't have the same checkable β predictions.
-2. **Keep P4 as a literalist, not a teacher.** Breakfast-teacher and
-   engineering-student can wait, or replace a cell later if P4 looks too
-   close to P2 (both "strict").
+1. **Assigned-persona 5-arm design (P0–P4) for this round.** Defer "state
+   your persona," prompt-order swaps, and counsel-of-personas.
+2. **P4 is a literalist, not a teacher.**
 3. **Run conditions blocked** (all P0, then all P1, …).
-4. **Freeze directional predictions now; freeze numeric β thresholds after
-   Step 0.**
-5. **Daniel does Step 0; Paul takes the Inspect build after the freeze
-   commit.** Informal UI prompting is optional and parallel, not the next
-   required step.
-
-Still open, and useful to settle on this PR: is Paul's between-model
-consistency claim a co-primary we should pre-register, or a secondary we
-report and promote if it shows up?
+4. **Predictions are signs, not magnitudes.** P1 no change; P2 `β_form` ↑;
+   P3 `β_form` ↓ toward 0; P4 `β_topic` ↑. Any signed movement is data.
+   No numeric cutoff — Step 0 cannot supply one.
+5. **Paul takes the Inspect build from this commit.**
+6. **Guardrails, not a co-primary.** Same-direction taste-weight shifts
+   across models, and do-no-harm on self-preference. Not studying whether
+   models agree with each other more. Not re-opening week-2 self-preference
+   as a primary.
