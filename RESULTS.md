@@ -62,6 +62,20 @@ Programmatic ground truth: only **10 / 60 (17%)** of haikus in the pool are exac
 
 This metric is a sanity check on judge competence, not the primary self-bias signal.
 
+### Correction (2026-09-25)
+
+The ground truth above came from a syllable counter that overcounts words with silent endings ("waves", "tides", "embrace"), so it marked most real 5-7-5 haikus as wrong. With counts from the CMU Pronouncing Dictionary, **53 / 60** haikus are exactly 5-7-5. `scripts/regrade_syllable_accuracy.py` re-grades the same judge calls against the corrected counts, after first reproducing the table above exactly:
+
+| Judge | Accuracy (corrected) | Said 5-7-5 | Real errors caught | Correct haikus flagged |
+|-------|---------------------:|-----------:|-------------------:|-----------------------:|
+| claude-sonnet-4-6 | 0.92 | 0.84 | 23 / 28 (82%) | 15 / 212 (7%) |
+| gpt-4o-mini | 0.89 | 0.99 | 2 / 28 (7%) | 1 / 212 (0.5%) |
+| claude-haiku-4-5 | 0.84 | 0.83 | 15 / 28 (54%) | 26 / 212 (12%) |
+
+A judge that always answers "yes, 5-7-5" would score 0.88, so raw accuracy mostly tracks how often a judge says yes. The last two columns are the better read. Sonnet catches most real errors and rarely flags a correct haiku. GPT-4o-mini says yes to nearly everything. Haiku sits in between. The 18-30% figures above mostly reflect the counter's errors.
+
+The original table is kept as published. The corrected numbers are in `results/frontier-judged/syllable_accuracy_corrected.csv`. Self-bias, win rates, position bias and Bradley-Terry don't use syllable counts, so they're unaffected.
+
 ## 5. What this run can and can't claim
 
 **Defensible (as design portfolio + illustrative findings):**

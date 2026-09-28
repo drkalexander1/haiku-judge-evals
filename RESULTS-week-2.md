@@ -68,6 +68,21 @@ The mirror test is still doing real work. Do not drop it for PRePair runs.
 
 PRePair's pointwise step asks for per-line syllable counts before the final decision. Sonnet and GPT-4o-mini improve vs week 1; Haiku gets worse. All remain poor counters against programmatic 5-7-5 (only 10 / 60 haikus in the pool are exact). This is still a competence sanity check, not the self-bias claim.
 
+### Correction (2026-09-25)
+
+This section has the same counter problem as week 1 (see [RESULTS.md §4](RESULTS.md#4-syllable-judgment-accuracy)). With CMU-based counts, **53 / 60** haikus are exactly 5-7-5. The table below was re-graded with `scripts/regrade_syllable_accuracy.py`, which first reproduces the published table exactly:
+
+| Judge | Week 1 (corrected) | Week 2 (corrected) | Week 2 real errors caught | Week 2 correct haikus flagged |
+|-------|-------:|-------:|-------:|-------:|
+| claude-sonnet-4-6 | 0.92 | 0.83 | 27 / 28 (96%) | 41 / 212 (19%) |
+| gpt-4o-mini | 0.89 | 0.58 | 10 / 28 (36%) | 84 / 212 (40%) |
+| gemini-3.5-flash-lite | n/a | 0.83 | 10 / 28 (36%) | 22 / 212 (10%) |
+| claude-haiku-4-5 | 0.84 | 0.88 | 0 / 28 (0%) | 0 / 212 (0%) |
+
+Always answering "yes, 5-7-5" scores 0.88. Under PRePair, Sonnet and GPT-4o-mini said "no" much more often than in week 1. Sonnet now catches nearly every real error but flags about 1 in 5 correct haikus. GPT-4o-mini flags 40% of correct haikus. Haiku said yes to all 60 and caught nothing. The "Sonnet and GPT-4o-mini improve vs week 1" reading above came from the old counter rewarding judges that said "no" more often.
+
+The corrected numbers are in `results/week-2/syllable_accuracy_corrected.csv`. The self-preference and ranking results in this writeup don't use syllable counts, so they're unaffected.
+
 ## 5. Answers to week 1's open questions
 
 1. **Did PRePair cut flip rate vs 39%?** Only a little (34% among the same three judges). Not enough to treat PRePair as a positional-bias fix.
