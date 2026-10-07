@@ -4,6 +4,9 @@ L1err is |line1-5| + |line2-7| + |line3-5|, same as haiku-evals
 syllable_l1_error. subject_cosine_full is recomputed with all-MiniLM-L6-v2
 (the haiku-evals local embedder). The original generation-run scores are
 not in this repo.
+
+Needs sentence-transformers, which isn't a core dependency:
+    pip install -e ".[step0]"
 """
 
 from __future__ import annotations
@@ -111,9 +114,10 @@ def main() -> int:
     pairs = pd.DataFrame(pair_rows)
 
     # Identifiability uses one orientation per author-pair (60 rows).
-    # delta_form here is L1err_left - L1err_right so a positive value means
-    # left is closer to 5-7-5. The logit uses (L1err_right - L1err_left),
-    # which is the sign flip (delta_form_model).
+    # delta_form is L1err_left - L1err_right, so a positive value means left
+    # is further from 5-7-5. The *_model columns are oriented so positive means
+    # left is better on that channel (lower L1err, higher cos), matching the
+    # logit's (L1err_right - L1err_left) and (cos_left - cos_right).
     r = pearson(pairs["delta_form_model"].to_numpy(), pairs["delta_topic_model"].to_numpy())
     r_abs = pearson(pairs["delta_form"].abs().to_numpy(), pairs["delta_topic"].abs().to_numpy())
 
@@ -129,18 +133,12 @@ def main() -> int:
         "lt_0.02": int((pairs["delta_topic"].abs() < 0.02).sum()),
     }
 
-    crossed = int(
-        (
-            ((pairs["delta_form"] > 0) & (pairs["delta_topic"] < 0))
-            | ((pairs["delta_form"] < 0) & (pairs["delta_topic"] > 0))
-        ).sum()
-    )
-    same_sign = int(
-        (
-            ((pairs["delta_form"] > 0) & (pairs["delta_topic"] > 0))
-            | ((pairs["delta_form"] < 0) & (pairs["delta_topic"] < 0))
-        ).sum()
-    )
+    # Tradeoff = form and topic favor different haikus. Use the *_model
+    # columns, where both channels share a direction: on the raw deltas,
+    # opposite signs mean the same haiku wins both.
+    form_m, topic_m = pairs["delta_form_model"], pairs["delta_topic_model"]
+    crossed = int((((form_m > 0) & (topic_m < 0)) | ((form_m < 0) & (topic_m > 0))).sum())
+    same_sign = int((((form_m > 0) & (topic_m > 0)) | ((form_m < 0) & (topic_m < 0))).sum())
 
     by_author = (
         haiku_df.groupby("author_model")

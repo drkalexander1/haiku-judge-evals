@@ -5,7 +5,9 @@ direction only, no numeric β thresholds.** Nothing built, nothing generated.
 This is week 3 on the haiku-judge branch (week 1 direct pairwise, week 2
 PRePair + Gemini). Paul takes the Inspect build from this freeze.
 
-**Round number:** week 3. Step 0 says the existing pool is identifiable.
+**Round number:** week 3. Step 0 (rerun 2026-10-01 with the CMU counter):
+the topic channel is identifiable on the existing pool; the form channel is
+thin. Whether to add off-form haikus is open.
 
 ## The question
 
@@ -122,30 +124,51 @@ human ratings and should be scoped separately.
   on. Same model snapshot either way; blocked is easier to debug if a
   condition fails partway.
 
-## Step 0 — done (2026-09-22). Pool is identifiable.
+## Step 0: rerun 2026-10-01 with the CMU counter. Topic identifiable, form thin.
 
-`L1err` is `|s1−5|+|s2−7|+|s3−5|` via `src/syllables_util.py`. Cosine is
+`L1err` is `|s1−5|+|s2−7|+|s3−5|` via `src/syllables_util.py`, which counts
+with the CMU Pronouncing Dictionary since #5. Cosine is
 `subject_cosine_full` recomputed with `all-MiniLM-L6-v2` (same embedder as
 haiku-evals; the original generation-run scores are not in this repo).
-Tables: `results/step0/`.
+Tables: `results/step0/`. The first run (2026-09-22) used the old
+`syllables.estimate()` counter, which overcounted silent endings; its
+numbers are kept below for comparison.
 
-| check | result |
-|---|---|
-| n | 60 haikus, 60 unique author-pairs |
-| exact 5-7-5 | 10 / 60. Mean L1err 1.55 (range 0–4) |
-| mean cosine | 0.41 (range 0.16–0.62) |
-| corr(Δform, Δtopic) | **−0.10** |
-| form gap ≥ 1 | 45 / 60 |
-| \|Δtopic\| ≥ 0.05 | 38 / 60 |
-| tradeoff pairs (opposite sign) | 18 / 60 |
+| check | first run (old counter) | rerun (CMU counter) |
+|---|---|---|
+| n | 60 haikus, 60 unique author-pairs | same |
+| exact 5-7-5 | 10 / 60. Mean L1err 1.55 (range 0-4) | **53 / 60**. Mean L1err 0.12 (range 0-1) |
+| mean cosine | 0.41 (range 0.16-0.62) | same |
+| corr(Δform, Δtopic) | −0.10 | **+0.31** |
+| form gap ≥ 1 | 45 / 60 | **12 / 60**, every one a 1-syllable gap |
+| \|Δtopic\| ≥ 0.05 | 38 / 60 | 38 / 60 |
+| tradeoff pairs (form and topic favor different haikus) | 27 / 60 (reported as 18) | **4 / 60** |
 
-Authors do not dominate both channels. Haiku is slightly closest to 5-7-5
-(mean L1err 1.45); Sonnet is slightly highest on cosine (0.43) and slightly
-worst on form (1.65). No designed stimulus set is required first.
+The first run reported 18 tradeoff pairs. That count compared the raw
+deltas, where L1err is lower-is-better and cosine is higher-is-better, so
+"opposite sign" meant the same haiku won both channels. The script now
+counts on the `*_model` deltas, which share a direction.
 
-Step 0 is why magnitudes stay unfrozen: these numbers say the βs *can* be
-told apart, not how large a persona should move them. There is no prior
-persona run to take an effect size from.
+**Topic is identifiable; form is thin.** For each judge, only 24 of its 120
+judgments (12 pairs × 2 orientations) carry any form information, and each
+one only asks "does the judge prefer the exact 5-7-5 haiku over the one
+that's a syllable off?" Only 4 pairs separate form from topic, and where
+form does differ, the better-formed haiku tends to also be the more
+on-topic one (r = +0.31). So the P2 and P3 predictions on `β_form` may come
+out inconclusive on this pool. P4 (`β_topic`), the P1 placebo, position
+bias and self-preference don't need form variation. The competence
+catch rate rests on just 7 off-form haikus (28 calls per judge), so it's
+thin too.
+
+Authors still don't dominate both channels. gpt-4o-mini is now closest to
+5-7-5 (mean L1err 0.05, 19 of 20 exact), Haiku and Sonnet are at 0.15
+(17 of 20), and Sonnet is still slightly highest on cosine (0.43). Whether
+week 3 needs a designed set of off-form haikus is open; see the Step 0
+rerun PR.
+
+Step 0 is why magnitudes stay unfrozen: these numbers say whether the βs
+can be told apart, not how large a persona should move them. There is no
+prior persona run to take an effect size from.
 
 ## Build (small)
 
