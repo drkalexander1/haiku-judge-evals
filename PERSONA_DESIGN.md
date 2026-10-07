@@ -7,7 +7,9 @@ PRePair + Gemini). Paul takes the Inspect build from this freeze.
 
 **Round number:** week 3. Step 0 (rerun 2026-10-01 with the CMU counter):
 the topic channel is identifiable on the existing pool; the form channel is
-thin. Whether to add off-form haikus is open.
+thin. **Keep this pool** (Daniel, 2026-10-07): no extra off-form haikus.
+P2/P3 may be inconclusive; that is a reported limitation, not a new
+generation run. Paul takes the Inspect build.
 
 ## The question
 
@@ -162,9 +164,13 @@ thin too.
 
 Authors still don't dominate both channels. gpt-4o-mini is now closest to
 5-7-5 (mean L1err 0.05, 19 of 20 exact), Haiku and Sonnet are at 0.15
-(17 of 20), and Sonnet is still slightly highest on cosine (0.43). Whether
-week 3 needs a designed set of off-form haikus is open; see the Step 0
-rerun PR.
+(17 of 20), and Sonnet is still slightly highest on cosine (0.43).
+
+**Off-form decision (Daniel, 2026-10-07): option A, keep this pool.** Do not
+edit haikus into minimal pairs (that would break self-preference) and do
+not add a looser-form generation run. Form is thin; report that. P4, P1,
+position bias, and self-preference do not need more form variation. Paul
+builds on the existing 60.
 
 Step 0 is why magnitudes stay unfrozen: these numbers say whether the βs
 can be told apart, not how large a persona should move them. There is no
@@ -270,3 +276,7 @@ signs are frozen, magnitudes are not.)
    across models, and do-no-harm on self-preference. Not studying whether
    models agree with each other more. Not re-opening week-2 self-preference
    as a primary.
+7. **Keep the existing 60-haiku pool (2026-10-07).** Option A. Form is
+   thin (12 pairs, all 1-syllable, 4 real tradeoffs); P2/P3 may be
+   inconclusive and that is fine. Competence is catch-rate vs false-flag
+   against CMU counts. No new generation run. Paul takes the Inspect build.
