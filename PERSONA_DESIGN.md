@@ -9,7 +9,8 @@ PRePair + Gemini). Paul takes the Inspect build from this freeze.
 the topic channel is identifiable on the existing pool; the form channel is
 thin. **Keep this pool** (Daniel, 2026-10-07): no extra off-form haikus.
 P2/P3 may be inconclusive; that is a reported limitation, not a new
-generation run. Paul takes the Inspect build.
+generation run. Paul takes the Inspect build. The analysis plan is frozen
+as call 8 (2026-10-23), before the pilot.
 
 ## The question
 
@@ -280,3 +281,52 @@ signs are frozen, magnitudes are not.)
    thin (12 pairs, all 1-syllable, 4 real tradeoffs); P2/P3 may be
    inconclusive and that is fine. Competence is catch-rate vs false-flag
    against CMU counts. No new generation run. Paul takes the Inspect build.
+8. **Analysis plan, fixed before the pilot (2026-10-23).** Persona texts
+   are signed off as written in `prompts/personas/` (139 characters each,
+   same opening sentence).
+   - **Separation:** fit a Firth (penalized) logit for every judge ×
+     persona cell, and in every bootstrap and permutation draw. Also fit
+     the plain logit and flag the cells where it separates. Report the
+     flags and keep those cells.
+   - **Intervals:** pair bootstrap, 2,000 draws, percentile 95%. Each draw
+     resamples whole pairs, keeping both orientations and every
+     condition's judgments of a pair together. The same draws give the βs,
+     the shifts vs P0, and the guardrail deltas. A scenario-level
+     bootstrap (20 clusters) runs as a sensitivity check, since a
+     scenario's three pairs share a subject. If the two disagree, report
+     both.
+   - **p-values:** two-sided permutation test. Each permutation swaps the
+     P0 and persona labels for all of a pair's judgments together, which
+     keeps the null aligned with the pair bootstrap. The primary set is
+     the 9 sign predictions from call 4 (P2 `β_form`, P3 `β_form`, P4
+     `β_topic`, for each of the 3 authoring judges). Report raw and
+     Holm-adjusted p side by side for those 9. Guardrails and everything
+     else are secondary, with raw p only.
+   - **The sign is the result** (call 4). α = 0.05 says how sure we are of
+     a shift; the sign says whether the prediction hit. A correctly signed
+     shift with p = 0.2 is a weak move in the predicted direction.
+   - **Power simulation before the pilot:** plant shifts on the real
+     60-pair layout, starting from P0-like β0 and βs, and report a minimum
+     detectable effect for each channel. It's context for the writeup and
+     sets no cutoff; call 4 stays signs only.
+   - **Gemini** is in the pilot, and stays in the full run if its rate
+     limits hold. It's a secondary judge: it authored nothing in the pool,
+     so it has no self-preference, and it isn't in the primary 9.
+   - **Pilot** (4 judges × 5 personas × 4 samples, 80 calls) checks the
+     pipeline and the cost only. Its data goes into no estimate, and
+     nothing in this call changes after it.
+   - **Details Paul filled in** (Daniel to flag any he'd change):
+     - 10,000 permutations per contrast, so p-values near the Holm
+       threshold for the smallest of 9 (0.05 / 9 ≈ 0.0056) aren't
+       decided by simulation noise. p = (permuted shifts at least as far
+       from 0 as the observed one, plus 1) / (10,000 + 1).
+     - The pair and scenario bootstraps "disagree" when one 95% interval
+       excludes 0 and the other doesn't.
+     - P0-like starting values for the power simulation come from the
+       logit fit to the week-1 picks (same 60 pairs, same 3 judges, no
+       persona). The minimum detectable effect is the smallest planted
+       shift found in 80% of simulated runs at two-sided α = 0.05.
+     - Gemini stays in the full run only if it finishes all 5 conditions.
+       Otherwise all of its data is dropped, so every condition has the
+       same judges (self-bias compares each judge with the others).
+     - Random seeds are fixed and written to the outputs.
